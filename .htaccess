@@ -1,6 +1,7 @@
 RewriteEngine On
 
-RewriteBase /ci3-webportal/CI3-webportal/
+RewriteBase /CI3-WEBPORTAL/
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

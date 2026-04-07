@@ -53,7 +53,134 @@
  *
  * NOTE: If you change these, also change the error_reporting() code below
  */
-	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development');
+	if ( ! function_exists('load_environment_file'))
+	{
+		function load_environment_file($file_path)
+		{
+			if ( ! is_file($file_path) || ! is_readable($file_path))
+			{
+				return;
+			}
+
+			$lines = file($file_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+			if ($lines === FALSE)
+			{
+				return;
+			}
+
+			foreach ($lines as $line)
+			{
+				$line = trim($line);
+
+				if ($line === '' || strpos($line, '#') === 0)
+				{
+					continue;
+				}
+
+				if (strpos($line, 'export ') === 0)
+				{
+					$line = substr($line, 7);
+				}
+
+				$delimiter_position = strpos($line, '=');
+
+				if ($delimiter_position === FALSE)
+				{
+					continue;
+				}
+
+				$name = trim(substr($line, 0, $delimiter_position));
+				$value = trim(substr($line, $delimiter_position + 1));
+
+				if ($name === '')
+				{
+					continue;
+				}
+
+				$value_length = strlen($value);
+
+				if ($value_length >= 2)
+				{
+					$first_character = $value[0];
+					$last_character = $value[$value_length - 1];
+
+					if (($first_character === '"' && $last_character === '"') || ($first_character === "'" && $last_character === "'"))
+					{
+						$value = substr($value, 1, -1);
+					}
+				}
+
+				$value = str_replace(array('\n', '\r', '\t'), array("\n", "\r", "\t"), $value);
+
+				putenv($name.'='.$value);
+				$_ENV[$name] = $value;
+				$_SERVER[$name] = $value;
+			}
+		}
+	}
+
+	if ( ! function_exists('env_value'))
+	{
+		function env_value($key, $default = NULL)
+		{
+			$value = getenv($key);
+
+			if ($value === FALSE)
+			{
+				return $default;
+			}
+
+			$normalized_value = strtolower($value);
+
+			if (in_array($normalized_value, array('true', '(true)'), TRUE))
+			{
+				return TRUE;
+			}
+
+			if (in_array($normalized_value, array('false', '(false)'), TRUE))
+			{
+				return FALSE;
+			}
+
+			if (in_array($normalized_value, array('null', '(null)'), TRUE))
+			{
+				return NULL;
+			}
+
+			if (in_array($normalized_value, array('empty', '(empty)'), TRUE))
+			{
+				return '';
+			}
+
+			return $value;
+		}
+	}
+
+	load_environment_file(__DIR__.DIRECTORY_SEPARATOR.'.env');
+
+	$detected_environment = env_value(
+		'APP_ENV',
+		env_value('CI_ENV', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development')
+	);
+
+	if ($detected_environment === NULL || $detected_environment === '')
+	{
+		$detected_environment = 'development';
+	}
+
+	load_environment_file(__DIR__.DIRECTORY_SEPARATOR.'.env.'.$detected_environment);
+
+	$detected_environment = env_value('APP_ENV', env_value('CI_ENV', $detected_environment));
+
+	define('ENVIRONMENT', $detected_environment);
+
+	putenv('APP_ENV='.ENVIRONMENT);
+	putenv('CI_ENV='.ENVIRONMENT);
+	$_ENV['APP_ENV'] = ENVIRONMENT;
+	$_ENV['CI_ENV'] = ENVIRONMENT;
+	$_SERVER['APP_ENV'] = ENVIRONMENT;
+	$_SERVER['CI_ENV'] = ENVIRONMENT;
 
 /*
  *---------------------------------------------------------------
